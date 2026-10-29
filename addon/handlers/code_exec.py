@@ -24,6 +24,7 @@ So the real control is the switch, not the list:
 import sys
 import io
 import time
+import traceback
 from collections import deque
 from .. import dispatcher
 
@@ -166,9 +167,22 @@ def handle_execute_code(params: dict) -> dict:
     except Exception as e:
         output = buffer.getvalue()
         _record(code, ok=False)
-        raise RuntimeError(f"{type(e).__name__}: {e}\nOutput before error: {output}")
+        raise RuntimeError(f"{type(e).__name__}: {e}{snippet_line(e)}\n"
+                           f"Output before error: {output}")
     finally:
         sys.stdout = old_stdout
+
+
+def snippet_line(error: BaseException) -> str:
+    """Where in the snippet it failed: " (line N of the snippet)", or "" when no frame of it is known.
+
+    The deepest frame inside the snippet counts, so an error raised by a bpy call names
+    the snippet's line that made the call. A SyntaxError carries its own line.
+    """
+    if isinstance(error, SyntaxError) and error.lineno:
+        return f" (line {error.lineno} of the snippet)"
+    frames = [f for f in traceback.extract_tb(error.__traceback__) if f.filename == "<string>"]
+    return f" (line {frames[-1].lineno} of the snippet)" if frames else ""
 
 
 def register():

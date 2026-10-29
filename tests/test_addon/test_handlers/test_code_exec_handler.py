@@ -286,3 +286,25 @@ class TestExecLog:
         log = code_exec_handler.get_exec_log()
         log.clear()
         assert isinstance(code_exec_handler.get_exec_log(), list)
+
+
+class TestErrorsNameTheSnippetLine:
+    """An error says which line of the snippet failed, not only its type and message."""
+
+    def test_runtime_error_names_its_line(self, code_exec_handler):
+        with pytest.raises(RuntimeError) as info:
+            code_exec_handler.handle_execute_code({"code": "x = 1\ny = {}\ny['missing']\n"})
+        assert "KeyError" in str(info.value)
+        assert "line 3 of the snippet" in str(info.value)
+
+    def test_error_inside_a_function_names_the_deepest_snippet_line(self, code_exec_handler):
+        code = "def f():\n    return 1 / 0\n\nf()\n"
+        with pytest.raises(RuntimeError) as info:
+            code_exec_handler.handle_execute_code({"code": code})
+        assert "line 2 of the snippet" in str(info.value)
+
+    def test_syntax_error_names_its_line(self, code_exec_handler):
+        with pytest.raises(RuntimeError) as info:
+            code_exec_handler.handle_execute_code({"code": "a = 1\nb = (\n"})
+        assert "SyntaxError" in str(info.value)
+        assert "of the snippet" in str(info.value)
